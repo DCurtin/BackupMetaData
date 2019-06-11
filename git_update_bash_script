@@ -1,0 +1,7 @@
+eval $(ssh-agent -s)
+ssh-add /c/Users/dcurtin/.ssh/sfmdbackup_rsa
+
+cd /c//SFMD_Backup/SFMD_Backup
+git add force-app
+git commit -am 'metadata backup'
+git push origin master
