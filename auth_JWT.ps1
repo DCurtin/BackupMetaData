@@ -6,17 +6,68 @@ Function filterOutWeirdTags($objectName)
     return ($objectName -match $nonStandardTag -AND $objectName -notmatch $customObjectTag)   
 }
 
-Function getMetadataNames($username) 
+Function getObjectMetadataNames($username) 
 {
-    [System.Collections.ArrayList] $soqlResults = sfdx force:data:soql:query -q "SELECT  QualifiedApiName FROM EntityDefinition" -r csv -u $AUTH_UNAME
+    [System.Collections.ArrayList] $soqlResults = sfdx force:data:soql:query -q "SELECT  QualifiedApiName FROM EntityDefinition" -r csv -u $username
     $soqlResults.RemoveAt(0);
 
     return $soqlResults
 }
 
-cd C:\SFMD_Backup\SFMD_Backup
+Function getReportMetadata($username)
+{
+    [System.Collections.ArrayList] $soqlResults = sfdx force:data:soql:query -q "SELECT Id, Developername, Name, FolderName FROM Report" -r csv -u $username
+    return generateMappedObjectFromCSV($soqlResults)
+}
 
-[string] $Config_json_string=Get-Content 'C:\SFMD_Backup\Config.json'
+Function getFolderMetadata($username)
+{
+    [System.Collections.ArrayList] $soqlResults = sfdx force:data:soql:query -q "SELECT Id, Developername, Type, ParentId FROM Folder" -r csv -u $username
+    return generateMappedObjectFromCSV($soqlResults)
+}
+
+Function generateObjectPath($object ,$folderMapping)
+{
+    $path=$object.Developername
+
+    $folderMapping
+}
+
+Function generateMappedObjectFromCSV
+{
+    param(
+    $csvArray
+    )
+
+    $headerString = $csvArray[0];
+    $headerElements = $headerString.split(',');
+    #echo $headerElements
+    $csvArray.RemoveAt(0);
+    
+
+    $object = [ordered]@{};
+    
+    Foreach($headerElement in $headerElements)
+    {
+        $object.add($headerElement, [System.Collections.ArrayList] @());
+    }
+    
+   Foreach($item in $csvArray)
+    {
+        $elements = $item.split(',');
+        for($index=0; $index -lt $elements.count; ++$index)
+        {
+            #echo "$index header $($object[$index]) value $($elements[$index])"
+            $object[$index].add($elements[$index]);
+        }
+    }
+     <##$csvObject = ConvertTo-Csv $object#>
+    return $object;
+}
+
+cd F:\SFMD_Backup\SFMD_Backup
+
+[string] $Config_json_string=Get-Content 'F:\SFMD_Backup\Config.json'
 $config_json = ConvertFrom-Json $Config_json_string
 
 $AUTH_UNAME=$config_json.UserName
@@ -41,7 +92,8 @@ $CONSUMER_KEY=$config_json.ConsumerKey
 #authenticate
 sfdx force:auth:jwt:grant --clientid $CONSUMER_KEY  --jwtkeyfile $SERVER_KEY_PATH --username $AUTH_UNAME
 
-$metaDataNames = getMetadataNames($AUTH_UNAME)
+$metaDataNames = getObjectMetadataNames($AUTH_UNAME)
+$reports = getReportMetadataNames($AUTH_UNAME)
 
 $metaDataNames.ForEach(
 {
@@ -79,11 +131,17 @@ $MetaData_Types.ForEach(
     $BLANK_MAN.Package.AppendChild($types_element)
 })
 
-$BLANK_MAN.save($PROJECT_MAN)
+$reports.ForEach(
+{
+    <#
+        
+    #>
+})
 
-sfdx force:source:retrieve --manifest $PROJECT_MAN -u $AUTH_UNAME
+$BLANK_MAN.save($PROJECT_MAN_PATH)
 
-& 'C:\Program Files\Git\git-bash.exe' C:\SFMD_Backup\git_update_bash_script
+#sfdx force:source:retrieve --manifest $PROJECT_MAN_PATH -u $AUTH_UNAME
+#& 'C:\Program Files\Git\git-bash.exe' F:\SFMD_Backup\git_update_bash_script
 
 echo 'DONE'
 
